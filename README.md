@@ -1,153 +1,210 @@
-# Claude Code Java
+# JavaAgent CLI
 
-> Claude Code 核心逻辑的 Java 伪代码实现（设计稿）
-
-## ⚠️ 项目状态：伪代码 / 设计稿
-
-**本项目目前处于设计阶段，大部分代码为伪代码骨架，核心逻辑均被注释掉，尚不可运行。**
-
-代码中大量方法体以注释形式存在，仅作为架构设计和未来实现的参考。只有少数数据模型和接口定义是可以编译通过的。
-
----
+> 基于Java标准库的Agent CLI设计稿，包含状态机驱动的Agent Loop、审批机制和工具系统
 
 ## 项目概述
 
-将 Claude Code 的 TypeScript 源码转换为 Java/Spring Boot 实现，保留核心功能。
+本项目是一个**设计稿/伪代码项目**，展示如何用Java标准库实现一个Agent CLI的核心架构。主要关注算法设计和状态机逻辑，而非完整实现。
 
-本项目当前的价值：
-- 作为 **架构设计参考**，展示各模块的职责和交互方式
-- 作为 **开发蓝图**，注释中的伪代码描述了目标实现逻辑
-- 作为 **类型定义**，`Message`、`Tool`、`Config` 等模型已基本成型
+### 核心设计
 
-## 项目结构
+1. **Agent Loop 状态机** - 清晰的状态转换逻辑
+2. **审批机制** - 敏感工具执行前需要用户确认
+3. **会话持久化** - 最后一次会话保存到JSON文件
+4. **工具系统** - 可扩展的工具执行框架
 
-```
-claude-code-java/
-├── pom.xml                          # Maven 配置
-└── src/main/java/com/claude/
-    ├── ClaudeCodeApplication.java   # 主入口 (伪代码)
-    │
-    ├── config/
-    │   └── Config.java              # 配置类 ✅
-    │
-    ├── core/                        # 核心模块
-    │   ├── Agent.java               # Agent 循环 (伪代码)
-    │   ├── Context.java             # 上下文管理 (伪代码)
-    │   └── Message.java             # 消息模型 ✅
-    │
-    ├── tools/                        # 工具系统
-    │   ├── Tool.java                # 工具接口 ✅
-    │   ├── ToolRegistry.java        # 工具注册表 (伪代码)
-    │   ├── AddTool.java             # /add 添加工具 (伪代码)
-    │   ├── ReadFileTool.java       # 文件读取 ✅ (唯一可运行的工具)
-    │   ├── GrepTool.java           # 搜索工具 (伪代码)
-    │   └── BashTool.java           # Shell 执行 (伪代码)
-    │
-    ├── model/                        # AI 模型层
-    │   ├── ModelClient.java         # 模型客户端接口 ✅
-    │   ├── MockModelClient.java     # Mock 实现 (伪代码)
-    │   └── ClaudeApiClient.java     # 真实 API (伪代码)
-    │
-    └── history/                      # 历史管理
-        ├── HistoryManager.java      # 历史管理 (伪代码)
-        └── JsonHistoryStore.java    # JSON 持久化 (伪代码)
-```
-
-## 伪代码 / 实现状态
-
-| 文件 | 状态 | 说明 |
-|------|------|------|
-| `Message.java` | ✅ 实现 | 消息模型，包含 ToolCall、ToolResult、工厂方法 |
-| `Config.java` | ✅ 实现 | 配置类，支持 mock/real 切换 |
-| `Tool.java` | ✅ 实现 | 工具接口 + Result record |
-| `ReadFileTool.java` | ✅ 实现 | 可运行的读取文件工具 |
-| `ModelClient.java` | ✅ 实现 | 接口定义 + AIResponse record |
-| `AddTool.java` | 🔶 伪代码 | execute 有骨架，addFile/addDirectory 被注释 |
-| `GrepTool.java` | 🔶 伪代码 | execute 有骨架，searchInFile/matchesGlob 被注释 |
-| `BashTool.java` | 🔶 伪代码 | execute 有骨架，核心 ProcessBuilder 逻辑被注释 |
-| `ToolRegistry.java` | 🔶 伪代码 | 所有方法都被注释 |
-| `Agent.java` | 🔶 伪代码 | 所有方法都被注释 |
-| `Context.java` | 🔶 伪代码 | 所有方法都被注释 |
-| `MockModelClient.java` | 🔶 伪代码 | chat() 返回固定字符串，其余逻辑被注释 |
-| `ClaudeApiClient.java` | 🔶 伪代码 | WebClient 初始化和 API 调用都被注释 |
-| `HistoryManager.java` | 🔶 伪代码 | 所有方法都被注释 |
-| `JsonHistoryStore.java` | 🔶 伪代码 | 所有方法都被注释 |
-| `ClaudeCodeApplication.java` | 🔶 伪代码 | REPL 循环被注释 |
-
-> ✅ = 可编译运行的实现代码
-> 🔶 = 伪代码骨架，方法体被注释，需补充逻辑
-
-## 核心数据流（设计）
+## 核心数据流
 
 ```
-用户输入 (CLI)
+用户输入
     ↓
 Agent.process(input)
     ↓
-Context.addUserMessage()
+ConversationManager.addUserMessage()
     ↓
-ModelClient.chat() → AI 响应
+ModelClient.chat() → AIResponse
     ↓
-├─ 有工具调用 → ToolRegistry.execute() → Context.addToolResult()
-    ↓ (循环)
-└─ 文本回复 → Context.addAssistantMessage()
+├─ 需要工具调用?
+│   ↓
+│   Agent.checkApproval() → 用户确认
+│   ↓
+│   ToolRegistry.execute() → ToolResult
+│   ↓
+│   Agent.injectToolResults()
+│   ↓ (循环)
+└─ 文本响应
     ↓
-HistoryManager.saveSession()
+ConversationManager.addAssistantMessage()
+    ↓
+ConversationManager.saveCurrentSession()
     ↓
 返回给用户
 ```
 
-## 计划命令
+## Agent Loop 状态机
 
-| 命令 | 说明 |
-|------|------|
-| `/add <path>` | 添加文件到上下文 |
-| `/model mock` | 切换到 Mock 模式 |
-| `/model real` | 切换到真实 API |
-| `/history` | 查看会话历史 |
-| `/clear` | 清空上下文 |
-| `/help` | 显示帮助 |
-| `/exit` | 退出程序 |
-
-## 编译
-
-```bash
-mvn clean compile
+```
+┌─────────┐     ┌─────────────┐     ┌─────────────────┐
+│  IDLE   │────▶│ PROCESSING  │────▶│ WAITING_APPROVAL│
+└─────────┘     └─────────────┘     └─────────────────┘
+     ▲                                      │
+     │                                      ▼
+     │                              ┌─────────────────┐
+     │                              │ EXECUTING_TOOL  │
+     │                              └─────────────────┘
+     │                                      │
+     │                                      ▼
+     │                              ┌─────────────────┐
+     └──────────────────────────────│   RESPONDING    │
+                                    └─────────────────┘
 ```
 
-> 注：不可编译通过
+### 状态说明
+
+| 状态 | 说明 |
+|------|------|
+| `IDLE` | 空闲状态，等待用户输入 |
+| `PROCESSING` | 处理用户输入，调用AI模型 |
+| `WAITING_APPROVAL` | 等待用户对工具执行的审批 |
+| `EXECUTING_TOOL` | 执行已批准的工具 |
+| `RESPONDING` | 生成并返回AI响应 |
+| `ERROR` | 错误状态 |
+
+## 审批流程
+
+```
+AI请求工具执行
+    ↓
+检查工具是否需要审批
+    ↓
+├─ 不需要审批 ──▶ 直接执行
+│
+└─ 需要审批
+    ↓
+显示审批提示
+    ↓
+等待用户输入 (yes/no/cancel)
+    ↓
+├─ yes  ──▶ 执行工具
+├─ no   ──▶ 拒绝执行，返回错误
+└─ cancel ──▶ 取消操作
+```
+
+## 工具结果回灌流程
+
+```
+工具执行完成
+    ↓
+创建ToolResult
+    ↓
+创建tool消息 (Message.tool())
+    ↓
+添加到ConversationManager
+    ↓
+更新Agent上下文
+    ↓
+重新进入PROCESSING状态
+    ↓
+发送带工具结果的新请求给AI
+```
+
+## 项目结构
+
+```
+src/main/java/com/javagent/
+├── JavaAgentCLI.java              # 主入口
+├── core/                          # 核心模块
+│   ├── Agent.java                 # Agent状态机（伪代码）
+│   ├── Config.java                # 配置管理
+│   └── ConversationManager.java   # 会话管理
+├── model/                         # 模型层
+│   ├── Message.java               # 消息模型（Record）
+│   └── ModelClient.java           # 模型客户端（伪代码）
+└── tools/                         # 工具系统
+    ├── Tool.java                  # 工具接口
+    ├── ToolResult.java            # 工具结果
+    ├── ToolRegistry.java          # 工具注册表
+    ├── ReadFileTool.java          # 文件读取工具
+    ├── GrepTool.java              # 文件搜索工具
+    └── BashTool.java              # Shell执行工具（需审批）
+```
+
+## 实现状态
+
+| 文件 | 状态 | 说明 |
+|------|------|------|
+| `Message.java` | ✅ 实现 | Record类型消息模型 |
+| `Tool.java` | ✅ 实现 | 工具接口定义 |
+| `ToolResult.java` | ✅ 实现 | 工具结果封装 |
+| `Config.java` | ✅ 实现 | 配置管理 |
+| `ConversationManager.java` | ✅ 实现 | 最后一次会话保存 |
+| `ReadFileTool.java` | ✅ 实现 | 文件读取实现 |
+| `GrepTool.java` | ✅ 实现 | 文件搜索实现 |
+| `BashTool.java` | ✅ 实现 | Shell执行实现 |
+| `ToolRegistry.java` | ✅ 实现 | 工具注册表 |
+| `JavaAgentCLI.java` | ✅ 实现 | CLI主入口 |
+| `Agent.java` | 🔶 伪代码 | 状态机核心逻辑 |
+| `ModelClient.java` | 🔶 伪代码 | AI模型调用 |
+
+> ✅ = 可运行的实现代码  
+> 🔶 = 伪代码/设计稿，需补充完整逻辑
 
 ## 技术栈
 
-- Java 21
-- Spring Boot 3.2.0
-- Jackson (JSON)
-- Lombok
-- Spring WebFlux (WebClient)
+- **Java 21+** - 使用Record、Switch表达式等新特性
+- **Jackson** - JSON序列化
+- **Java标准库** - HttpClient、Scanner等
+- **Maven** - 构建工具
+
+## 运行方式
+
+```bash
+# 编译
+mvn clean compile
+
+# 运行
+java -cp "target/classes;target/lib/*" com.javagent.JavaAgentCLI
+```
+
+## 配置
+
+配置文件 `~/.javaagent/config.properties`:
+
+```properties
+agent.mock_mode=true
+agent.api_key=
+agent.base_url=https://api.example.com/v1
+agent.auto_save=true
+agent.approval_required=true
+```
+
+## 设计要点
+
+### 1. 状态机设计
+
+Agent使用枚举状态机管理整个对话流程，每个状态有明确的职责和转换条件。
+
+### 2. 审批机制
+
+敏感工具（如BashTool）在`WAITING_APPROVAL`状态等待用户确认，通过后才进入`EXECUTING_TOOL`状态。
+
+### 3. 会话简化
+
+只保存**最后一次会话**到单个JSON文件，不实现复杂的session管理。
+
+### 4. 纯标准库
+
+不使用Spring Boot或WebFlux，仅用Java标准库实现，降低依赖复杂度。
 
 ## TODO
 
-- [ ] 实现 Agent 主循环逻辑
-- [ ] 实现 Context 上下文管理
-- [ ] 实现 ToolRegistry 工具注册
-- [ ] 完善 GrepTool 搜索逻辑
-- [ ] 完善 BashTool 执行逻辑
-- [ ] 完善 AddTool 目录添加逻辑
-- [ ] 实现 ClaudeApiClient 真实 API 调用
-- [ ] 完善 MockModelClient Mock 响应
-- [ ] 实现 HistoryManager 历史管理
-- [ ] 实现 JsonHistoryStore JSON 持久化
-- [ ] 实现 REPL 主循环
-- [ ] 实现流式响应
-- [ ] 添加更多工具 (WriteFile, Glob 等)
-- [ ] 实现上下文压缩
+- [ ] 完善Agent状态机完整逻辑
+- [ ] 实现真实AI模型调用
+- [ ] 添加流式响应支持
+- [ ] 实现更多工具
 - [ ] 添加单元测试
 
-## 参考源码
+## 参考
 
-- `restored-src/src/main.tsx` - 主入口
-- `restored-src/src/QueryEngine.ts` - 查询引擎
-- `restored-src/src/Tool.ts` - 工具系统
-- `restored-src/src/tools/` - 各种工具实现
-- `restored-src/src/services/api/claude.ts` - API 调用
-- `restored-src/src/history.ts` - 历史管理
+- Claude Code的Agent Loop设计
+- 状态机模式在对话系统中的应用

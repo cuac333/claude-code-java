@@ -1,21 +1,17 @@
-package com.claude.tools;
+package com.javagent.tools;
 
-import org.springframework.stereotype.Component;
-import java.util.Map;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 
 /**
- * ReadFileTool - 读取文件内容
- * 
- * 对应 TS 源码: tools/FileReadTool.ts
+ * 文件读取工具
  */
-@Component
 public class ReadFileTool implements Tool {
     
-    private static final int MAX_LINES = 1000;  // 最大读取行数
+    private static final int MAX_LINES = 1000;
     
     @Override
     public String getName() {
@@ -24,7 +20,7 @@ public class ReadFileTool implements Tool {
     
     @Override
     public String getDescription() {
-        return "读取文件内容，支持指定行数范围";
+        return "Read file contents with optional line range";
     }
     
     @Override
@@ -33,40 +29,35 @@ public class ReadFileTool implements Tool {
     }
     
     @Override
-    public boolean isReadOnly() {
-        return true;
-    }
-    
-    @Override
-    public Result execute(Map<String, Object> input) {
+    public ToolResult execute(Map<String, Object> input) {
         try {
-            // 获取参数
             String path = (String) input.get("path");
-            Integer offset = (Integer) input.getOrDefault("offset", 0);    // 起始行
-            Integer limit = (Integer) input.getOrDefault("limit", MAX_LINES);  // 行数限制
-            
             if (path == null || path.isEmpty()) {
-                return Result.error("路径不能为空");
+                return ToolResult.error("Path is required");
             }
             
             Path filePath = Paths.get(path);
             
             // 检查文件是否存在
             if (!Files.exists(filePath)) {
-                return Result.error("文件不存在: " + path);
+                return ToolResult.error("File not found: " + path);
             }
             
-            // 检查是否是常规文件
+            // 检查是否为常规文件
             if (!Files.isRegularFile(filePath)) {
-                return Result.error("不是常规文件: " + path);
+                return ToolResult.error("Not a regular file: " + path);
             }
             
             // 读取文件
             List<String> allLines = Files.readAllLines(filePath);
             
+            // 获取行范围参数
+            int offset = getInt(input, "offset", 0);
+            int limit = getInt(input, "limit", MAX_LINES);
+            
             // 应用行范围
-            int start = Math.min(offset, allLines.size());
-            int end = Math.min(offset + limit, allLines.size());
+            int start = Math.max(0, Math.min(offset, allLines.size()));
+            int end = Math.min(start + limit, allLines.size());
             List<String> selectedLines = allLines.subList(start, end);
             
             // 构建结果
@@ -77,15 +68,29 @@ public class ReadFileTool implements Tool {
             content.append("─".repeat(50)).append("\n");
             content.append(String.join("\n", selectedLines));
             
-            // 如果有截断，添加提示
             if (end < allLines.size()) {
-                content.append("\n... (省略 ").append(allLines.size() - end).append(" 行)");
+                content.append("\n... (").append(allLines.size() - end).append(" lines omitted)");
             }
             
-            return Result.success(content.toString());
+            return ToolResult.success(content.toString());
             
         } catch (Exception e) {
-            return Result.error("读取文件失败: " + e.getMessage());
+            return ToolResult.error("Failed to read file: " + e.getMessage());
         }
+    }
+    
+    private int getInt(Map<String, Object> input, String key, int defaultValue) {
+        Object value = input.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Integer.parseInt((String) value);
+            } catch (NumberFormatException e) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 }
