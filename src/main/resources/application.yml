@@ -1,0 +1,16 @@
+# Claude Code Java 配置
+claude:
+  # 模型配置
+  model:
+    mode: mock  # mock 或 real
+    api-key: ${CLAUDE_API_KEY:""}
+    base-url: https://api.claude.ai
+    
+  # 历史保存配置
+  history:
+    path: ~/.claude-code-java/history
+    max-size: 100
+    
+  # 上下文配置
+  context:
+    max-tokens: 200000
