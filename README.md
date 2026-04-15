@@ -115,7 +115,7 @@ HistoryManager.saveSession()
 mvn clean compile
 ```
 
-> 注：虽然可以编译通过，但运行后无实际交互功能。
+> 注：不可编译通过
 
 ## 技术栈
 
